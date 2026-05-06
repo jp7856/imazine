@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>기사 이미지 검색 추천기 — NE Times</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f4f0;
+  --surface: #ffffff;
+  --border: #e2e0d8;
+  --text: #1a1917;
+  --muted: #6b6960;
+  --accent: #1a1917;
+  --accent-fg: #ffffff;
+  --tag-bg: #ececea;
+  --info-bg: #eef4ff;
+  --info-text: #2455b8;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 28px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.logo { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.logo span { color: var(--muted); font-weight: 400; }
+.badge { background: var(--tag-bg); color: var(--muted); font-size: 12px; padding: 4px 10px; border-radius: 20px; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 73px);
+}
+
+.sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 73px);
+  overflow-y: auto;
+}
+
+.main { padding: 28px 32px; }
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13px;
+  font-family: 'DM Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  line-height: 1.7;
+  transition: border-color 0.15s;
+}
+textarea:focus { border-color: #999; }
+
+.mode-row { display: flex; gap: 6px; }
+.mode-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg);
+  color: var(--muted);
+  transition: all 0.15s;
+}
+.mode-btn:hover { background: var(--tag-bg); color: var(--text); }
+.mode-btn.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+
+.run-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.15s;
+}
+.run-btn:hover { opacity: 0.85; }
+
+.meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.meta-cell {
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+}
+.meta-val { font-size: 14px; font-weight: 600; margin-top: 2px; }
+
+.kw-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.kw { background: var(--tag-bg); color: var(--text); font-size: 12px; padding: 4px 10px; border-radius: 20px; }
+
+.tip-box {
+  background: #f9f7f2;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.tip-box strong { color: var(--text); }
+
+.cards-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.cards-title { font-size: 18px; font-weight: 600; }
+.cards-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.07); transform: translateY(-1px); }
+
+.card-top { display: flex; justify-content: space-between; align-items: center; }
+.card-num {
+  background: var(--info-bg);
+  color: var(--info-text);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+.card-fit { font-size: 11px; color: var(--muted); }
+.card-title { font-size: 14px; font-weight: 600; }
+.card-intent { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.card-query {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--muted);
+  line-height: 1.6;
+  word-break: break-all;
+  flex: 1;
+}
+.card-actions { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+.card-row { display: flex; gap: 6px; }
+
+.act-btn {
+  flex: 1;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: background 0.12s;
+}
+.act-btn:hover { background: var(--tag-bg); }
+.act-btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.act-btn.primary:hover { opacity: 0.85; }
+
+.empty {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--muted);
+}
+.empty-icon { font-size: 48px; margin-bottom: 16px; }
+.empty-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.empty-desc { font-size: 13px; line-height: 1.6; }
+
+@media (max-width: 768px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+  header { padding: 16px 20px; }
+  .main { padding: 20px; }
+  .sidebar { padding: 20px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">기사 이미지 검색 추천기 <span>/ NE Times 편집 도구</span></div>
+  <div class="badge">API 불필요 · 저작권 안전</div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+
+    <div>
+      <div class="label">기사 원문 입력</div>
+      <textarea id="article" placeholder="영문 기사를 붙여넣으세요..."></textarea>
+    </div>
+
+    <div>
+      <div class="label">이미지 톤 선택</div>
+      <div class="mode-row">
+        <button class="mode-btn active" id="btn-auto" onclick="setMode('auto')">자동 감지</button>
+        <button class="mode-btn" id="btn-news" onclick="setMode('news')">실사형</button>
+        <button class="mode-btn" id="btn-concept" onclick="setMode('concept')">개념형</button>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="analyze()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      검색어 생성하기
+    </button>
+
+    <div id="meta-section" style="display:none">
+      <div class="label">분석 결과</div>
+      <div class="meta-grid">
+        <div class="meta-cell"><div class="label" style="margin:0 0 2px">분야</div><div class="meta-val" id="r-category"></div></div>
+        <div class="meta-cell"><div class="label" style="margin:0 0 2px">톤</div><div class="meta-val" id="r-tone"></div></div>
+      </div>
+      <div id="r-keywords" class="kw-list" style="margin-top:10px"></div>
+    </div>
+
+    <div class="tip-box">
+      <strong>편집 판단 기준</strong><br>
+      1순위는 예쁜 이미지가 아니라 기사 핵심이 <strong>3초 안에 읽히는</strong> 이미지입니다. 인물·장소·문제·해결책 중 기사에서 가장 중요한 요소가 보이는 이미지를 선택하세요.
+    </div>
+
+    <button class="run-btn" style="background:transparent;color:var(--muted);border:1px solid var(--border)" onclick="loadSample()">
+      예시 기사 불러오기
+    </button>
+
+  </aside>
+
+  <main class="main">
+    <div id="empty-state" class="empty">
+      <div class="empty-icon">🖼️</div>
+      <div class="empty-title">기사를 입력하고 검색어를 생성하세요</div>
+      <div class="empty-desc">왼쪽에 영문 기사를 붙여넣고<br>검색어 생성하기 버튼을 누르면<br>이미지 후보 9개가 여기 표시됩니다.</div>
+    </div>
+
+    <div id="results-section" style="display:none">
+      <div class="cards-header">
+        <div>
+          <div class="cards-title">이미지 검색 후보 9개</div>
+          <div class="cards-sub">각 후보는 서로 다른 편집 의도를 가진 검색어입니다</div>
+        </div>
+      </div>
+      <div class="cards" id="cards"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const STOPWORDS=new Set(["the","a","an","and","or","but","if","then","than","so","because","as","of","to","in","on","for","from","by","with","about","into","over","after","before","between","through","during","without","within","is","are","was","were","be","been","being","it","its","this","that","these","those","they","them","their","he","she","we","you","i","his","her","our","your","at","not","can","could","would","should","will","may","might","more","most","less","new","said","says","also","one","two","many","much","such","have","has","had","do","does","did","people","world","years","year","make","made","take","took","use","used","using"]);
+const CATS=[
+  {label:"환경·기후",words:["climate","heat","carbon","weather","warming","environment","trees","ocean","plastic","pollution"]},
+  {label:"과학·기술",words:["technology","science","ai","robot","space","data","research","device","energy","innovation"]},
+  {label:"교육·청소년",words:["student","school","education","teacher","classroom","teen","college","learning","exam"]},
+  {label:"사회·문화",words:["society","culture","community","family","city","rights","media","trend","generation"]},
+  {label:"경제·비즈니스",words:["economy","business","market","company","money","jobs","workers","price","trade"]},
+  {label:"건강·생활",words:["health","food","sleep","exercise","mental","doctor","disease","stress","diet"]}
+];
+const TEMPLATES=[
+  {title:"대표 장면형",intent:"기사 핵심이 3초 안에 읽히는 1순위 후보",add:"realistic news photo main scene",fit:"메인 컷"},
+  {title:"실사 뉴스형",intent:"실제 기사처럼 보이는 안정적인 사진",add:"documentary photo real people real place student friendly",fit:"신문형 지면"},
+  {title:"학생 친화형",intent:"학습교재 톤에 맞춘 부담 없는 이미지",add:"high school students classroom education non violent",fit:"학습 페이지"},
+  {title:"문제 상황형",intent:"갈등·위기·문제의식을 먼저 보여줌",add:"problem issue challenge documentary editorial",fit:"도입부 이미지"},
+  {title:"해결책 중심형",intent:"대안·정책·변화가 핵심인 기사에 적합",add:"solution innovation positive change editorial photo",fit:"해결 기사"},
+  {title:"인물 중심형",intent:"독자가 감정적으로 연결되는 이미지",add:"people portrait lifestyle candid editorial student friendly",fit:"인터뷰·사회"},
+  {title:"글로벌 이슈형",intent:"국제·환경·사회 이슈의 큰 맥락",add:"global issue wide shot city community world news",fit:"월드뉴스"},
+  {title:"개념 설명형",intent:"추상 개념을 시각적으로 쉽게 설명",add:"clean concept illustration infographic simple metaphor",fit:"개념 박스"},
+  {title:"표지 후보형",intent:"강한 첫인상과 넓은 여백 구성",add:"magazine cover photo copy space clean composition",fit:"표지·큰 이미지"}
+];
+const SAMPLE="As cities around the world struggle with extreme heat, urban planners are turning to trees, reflective roofs, and redesigned public spaces. Experts say these climate adaptation strategies can protect students, elderly residents, and outdoor workers while making neighborhoods more livable.";
+
+let mode="auto";
+
+function loadSample(){ document.getElementById("article").value=SAMPLE; }
+
+function setMode(m){
+  mode=m;
+  ["auto","news","concept"].forEach(k=>{
+    document.getElementById("btn-"+k).className="mode-btn"+(k===m?" active":"");
+  });
+}
+
+function extractKeywords(text){
+  const words=text.toLowerCase().replace(/[^a-z0-9\s]/g," ").split(/\s+/).filter(w=>w.length>3&&!STOPWORDS.has(w));
+  const freq=new Map();
+  words.forEach(w=>freq.set(w,(freq.get(w)||0)+1));
+  return Array.from(freq.entries()).map(([w,c])=>({w,s:c*Math.min(w.length,12)})).sort((a,b)=>b.s-a.s).slice(0,12).map(i=>i.w);
+}
+
+function detectCat(text,kws){
+  const pool=`${text} ${kws.join(" ")}`.toLowerCase();
+  const s=CATS.map(c=>({...c,score:c.words.reduce((n,w)=>n+(pool.includes(w)?1:0),0)})).sort((a,b)=>b.score-a.score);
+  return s[0].score>0?s[0].label:"일반 뉴스";
+}
+
+function detectTone(text){
+  if(mode!=="auto")return mode;
+  const l=text.toLowerCase();
+  const news=["city","students","workers","residents","government","company","school","community","experts"].reduce((n,w)=>n+(l.includes(w)?1:0),0);
+  const concept=["concept","system","process","strategy","trend","research","effect","impact"].reduce((n,w)=>n+(l.includes(w)?1:0),0);
+  return news>=concept?"news":"concept";
+}
+
+function gUrl(q){return`https://www.google.com/search?tbm=isch&safe=active&q=${encodeURIComponent(q)}`;}
+function uUrl(q){return`https://unsplash.com/s/photos/${encodeURIComponent(q)}`;}
+function pUrl(q){return`https://www.pexels.com/search/${encodeURIComponent(q)}/`;}
+
+function copyText(text,id){
+  navigator.clipboard.writeText(text).then(()=>{
+    const b=document.getElementById(id);
+    if(!b)return;
+    const prev=b.innerHTML;
+    b.innerHTML="✓ 복사됨";
+    setTimeout(()=>{b.innerHTML=prev;},1400);
+  });
+}
+
+function analyze(){
+  const text=document.getElementById("article").value.trim();
+  if(!text){alert("기사를 먼저 입력해주세요.");return;}
+
+  const kws=extractKeywords(text);
+  const cat=detectCat(text,kws);
+  const tone=detectTone(text);
+
+  document.getElementById("r-category").textContent=cat;
+  document.getElementById("r-tone").textContent=tone==="news"?"실사형":"개념형";
+  document.getElementById("r-keywords").innerHTML=kws.map(k=>`<span class="kw">${k}</span>`).join("");
+  document.getElementById("meta-section").style.display="block";
+
+  const core=kws.slice(0,5).join(" ");
+  const sup=kws.slice(5,9).join(" ");
+
+  document.getElementById("cards").innerHTML=TEMPLATES.map((t,i)=>{
+    const q=`${core} ${sup} ${t.add}`.replace(/\s+/g," ").trim();
+    const bid="cpb-"+i;
+    return`<div class="card">
+      <div class="card-top"><span class="card-num">#${i+1}</span><span class="card-fit">${t.fit}</span></div>
+      <div class="card-title">${t.title}</div>
+      <div class="card-intent">${t.intent}</div>
+      <div class="card-query">${q}</div>
+      <div class="card-actions">
+        <div class="card-row">
+          <button class="act-btn" id="${bid}" onclick="copyText('${q.replace(/'/g,"\\'")}','${bid}')">📋 복사</button>
+          <a href="${gUrl(q)}" target="_blank" class="act-btn primary">Google 검색 →</a>
+        </div>
+        <div class="card-row">
+          <a href="${uUrl(q)}" target="_blank" class="act-btn">Unsplash</a>
+          <a href="${pUrl(q)}" target="_blank" class="act-btn">Pexels</a>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("empty-state").style.display="none";
+  document.getElementById("results-section").style.display="block";
+}
+</script>
+</body>
+</html>
