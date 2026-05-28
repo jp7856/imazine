@@ -223,6 +223,71 @@ textarea:focus { border-color: #999; }
 .empty-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
 .empty-desc { font-size: 13px; line-height: 1.6; }
 
+/* 파이프라인 연결 배너 */
+#pipeline-banner {
+  display: none;
+  background: #1a1917;
+  color: #fff;
+  padding: 12px 20px;
+  font-size: 13px;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #333;
+}
+#pipeline-banner.visible { display: flex; }
+.pipeline-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; flex-shrink: 0; animation: blink 1.5s infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+.pipeline-send-wrap { display: flex; gap: 6px; margin-left: auto; }
+.pipeline-send-wrap input {
+  padding: 6px 10px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #2a2927;
+  color: #fff;
+  font-size: 12px;
+  width: 280px;
+  outline: none;
+}
+.pipeline-send-wrap input::placeholder { color: #666; }
+.pipeline-send-btn {
+  padding: 6px 14px;
+  background: #4ade80;
+  color: #0f1a0f;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pipeline-send-btn:hover { background: #86efac; }
+
+/* 카드 선택 버튼 */
+.card-select-wrap { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.card-select-input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 11px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+}
+.card-select-btn {
+  padding: 6px 10px;
+  background: #1a1917;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.card-select-btn:hover { background: #333; }
+.card-select-btn.sent { background: #166534; }
+
 @media (max-width: 768px) {
   .layout { grid-template-columns: 1fr; }
   .sidebar { position: static; height: auto; }
@@ -233,6 +298,16 @@ textarea:focus { border-color: #999; }
 </style>
 </head>
 <body>
+
+<!-- 파이프라인 연결 배너 -->
+<div id="pipeline-banner">
+  <div class="pipeline-dot"></div>
+  <span>NE Times 파이프라인 연결됨 — 이미지 URL을 붙여넣고 전송하세요</span>
+  <div class="pipeline-send-wrap">
+    <input type="text" id="pipeline-url-input" placeholder="이미지 URL 붙여넣기...">
+    <button class="pipeline-send-btn" onclick="sendToPipeline(document.getElementById('pipeline-url-input').value)">파이프라인으로 전송</button>
+  </div>
+</div>
 
 <header>
   <div class="logo">기사 이미지 검색 추천기 <span>/ NE Times 편집 도구</span></div>
@@ -324,6 +399,30 @@ const TEMPLATES=[
 const SAMPLE="As cities around the world struggle with extreme heat, urban planners are turning to trees, reflective roofs, and redesigned public spaces. Experts say these climate adaptation strategies can protect students, elderly residents, and outdoor workers while making neighborhoods more livable.";
 
 let mode="auto";
+const isPipeline = !!(window.opener && !window.opener.closed);
+
+// 파이프라인 연결 시 배너 표시
+if (isPipeline) {
+  document.getElementById("pipeline-banner").classList.add("visible");
+}
+
+function sendToPipeline(url) {
+  url = url && url.trim();
+  if (!url) { alert("이미지 URL을 입력해주세요."); return; }
+  if (!isPipeline) { alert("파이프라인과 연결되지 않았습니다."); return; }
+  window.opener.postMessage({ imageUrl: url }, "*");
+  window.close();
+}
+
+function sendFromCard(inputId, btnId) {
+  const url = document.getElementById(inputId).value.trim();
+  if (!url) { alert("이미지 URL을 입력해주세요."); return; }
+  const btn = document.getElementById(btnId);
+  btn.textContent = "✓ 전송됨";
+  btn.classList.add("sent");
+  window.opener.postMessage({ imageUrl: url }, "*");
+  setTimeout(() => window.close(), 600);
+}
 
 function loadSample(){ document.getElementById("article").value=SAMPLE; }
 
@@ -388,6 +487,8 @@ function analyze(){
   document.getElementById("cards").innerHTML=TEMPLATES.map((t,i)=>{
     const q=`${core} ${sup} ${t.add}`.replace(/\s+/g," ").trim();
     const bid="cpb-"+i;
+    const sid="sel-"+i;
+    const sinp="sinp-"+i;
     return`<div class="card">
       <div class="card-top"><span class="card-num">#${i+1}</span><span class="card-fit">${t.fit}</span></div>
       <div class="card-title">${t.title}</div>
@@ -402,6 +503,10 @@ function analyze(){
           <a href="${uUrl(q)}" target="_blank" class="act-btn">Unsplash</a>
           <a href="${pUrl(q)}" target="_blank" class="act-btn">Pexels</a>
         </div>
+        ${isPipeline?`<div class="card-select-wrap">
+          <input class="card-select-input" id="${sinp}" placeholder="이미지 URL 붙여넣기...">
+          <button class="card-select-btn" id="${sid}" onclick="sendFromCard('${sinp}','${sid}')">선택</button>
+        </div>`:""}
       </div>
     </div>`;
   }).join("");
