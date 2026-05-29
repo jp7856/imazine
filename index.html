@@ -401,10 +401,20 @@ const SAMPLE="As cities around the world struggle with extreme heat, urban plann
 let mode="auto";
 const isPipeline = !!(window.opener && !window.opener.closed);
 
-// 파이프라인 연결 시 배너 표시
+// 파이프라인 연결 시 배너 표시 + ready 신호 전송
 if (isPipeline) {
   document.getElementById("pipeline-banner").classList.add("visible");
+  window.opener.postMessage({ type: "ready" }, "*");
 }
+
+// 대시보드에서 기사 본문 수신 → 자동 채우기 + 검색 실행
+window.addEventListener("message", (event) => {
+  if (!event.data || event.data.type !== "prefill") return;
+  const text = event.data.text || "";
+  if (!text) return;
+  document.getElementById("article").value = text;
+  analyze();
+});
 
 function sendToPipeline(url) {
   url = url && url.trim();
